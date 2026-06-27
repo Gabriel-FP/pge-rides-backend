@@ -1,0 +1,23 @@
+info:
+  name: Create ride
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/rides"
+  body:
+    type: json
+    data: |-
+      {
+        "userId": 1,
+        "origin": "Av. Washington Soares, 1321",
+        "destination": "Praca do Ferreira, Centro"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
