@@ -7,9 +7,12 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -33,5 +36,17 @@ public class RideController {
     @GetMapping
     public List<RideResponseDTO> findAll() {
         return service.findAll();
+    }
+
+    // A driver accepts a ride: links the driver and moves it to IN_PROGRESS.
+    @PatchMapping("/{id}/accept")
+    public RideResponseDTO accept(@PathVariable Long id, @RequestParam Long driverId) {
+        return service.accept(id, driverId);
+    }
+
+    // Reads the in-progress ride straight from Redis (for queries).
+    @GetMapping("/{id}/status")
+    public RideResponseDTO status(@PathVariable Long id) {
+        return service.getStatus(id);
     }
 }
