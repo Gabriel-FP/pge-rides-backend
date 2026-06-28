@@ -34,6 +34,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    // Business rule: a user cannot have more than one active ride at a time
+    @ExceptionHandler(ActiveRideAlreadyExistsException.class)
+    public ResponseEntity<ApiError> handleActiveRide(ActiveRideAlreadyExistsException ex) {
+        ApiError body = new ApiError(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     // Safety net for anything unexpected: log it, but never leak internals to the client
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex) {
