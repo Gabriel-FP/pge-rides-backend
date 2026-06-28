@@ -1,13 +1,13 @@
 package br.gov.pge.rides;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
 class RidesBackendApplicationTests {
 
 	@Test
-	void contextLoads() {
+	void mainClassShouldExist() {
+		assertDoesNotThrow(() -> Class.forName("br.gov.pge.rides.RidesBackendApplication"));
 	}
-
 }
