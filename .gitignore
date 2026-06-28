@@ -35,3 +35,6 @@ build/
 ### Secrets / environment ###
 .env
 !.env.example
+
+### Bruno API collection (avoid noise from request auto-saves) ###
+rides-api/
