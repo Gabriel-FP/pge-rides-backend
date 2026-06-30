@@ -2,11 +2,11 @@ package br.gov.pge.rides.scheduler;
 
 import br.gov.pge.rides.model.Ride;
 import br.gov.pge.rides.model.enums.RideStatus;
+import br.gov.pge.rides.notification.ClientNotificationService;
 import br.gov.pge.rides.repository.RideRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -21,14 +21,14 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class RideTimeoutSchedulerTest {
 
-    @Mock
-    private RideRepository repository;
+    @Mock private RideRepository repository;
+    @Mock private ClientNotificationService clientNotificationService;
 
     private RideTimeoutScheduler scheduler;
 
     @Test
     void cancelExpiredRides_shouldCancelWaitingRidesPastTimeout() {
-        scheduler = new RideTimeoutScheduler(repository, 60);
+        scheduler = new RideTimeoutScheduler(repository, clientNotificationService, 60);
 
         Ride expired1 = buildWaitingRide(1L);
         Ride expired2 = buildWaitingRide(2L);
@@ -43,8 +43,22 @@ class RideTimeoutSchedulerTest {
     }
 
     @Test
+    void cancelExpiredRides_shouldNotifyClientForEachCancelledRide() {
+        scheduler = new RideTimeoutScheduler(repository, clientNotificationService, 60);
+
+        Ride expired1 = buildWaitingRide(1L);
+        Ride expired2 = buildWaitingRide(2L);
+        when(repository.findByStatusAndCreatedAtBefore(eq(RideStatus.WAITING), any(LocalDateTime.class)))
+                .thenReturn(List.of(expired1, expired2));
+
+        scheduler.cancelExpiredRides();
+
+        verify(clientNotificationService, times(2)).notifyStatusChange(any());
+    }
+
+    @Test
     void cancelExpiredRides_shouldDoNothingWhenNoExpiredRides() {
-        scheduler = new RideTimeoutScheduler(repository, 60);
+        scheduler = new RideTimeoutScheduler(repository, clientNotificationService, 60);
 
         when(repository.findByStatusAndCreatedAtBefore(eq(RideStatus.WAITING), any(LocalDateTime.class)))
                 .thenReturn(List.of());
@@ -52,11 +66,12 @@ class RideTimeoutSchedulerTest {
         scheduler.cancelExpiredRides();
 
         verify(repository, never()).save(any());
+        verify(clientNotificationService, never()).notifyStatusChange(any());
     }
 
     @Test
     void cancelExpiredRides_shouldUseConfiguredTimeoutValue() {
-        scheduler = new RideTimeoutScheduler(repository, 120);
+        scheduler = new RideTimeoutScheduler(repository, clientNotificationService, 120);
 
         when(repository.findByStatusAndCreatedAtBefore(eq(RideStatus.WAITING), any(LocalDateTime.class)))
                 .thenReturn(List.of());

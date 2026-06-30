@@ -1,12 +1,16 @@
 package br.gov.pge.rides.notification;
 
 import br.gov.pge.rides.messaging.RideMessage;
+import br.gov.pge.rides.model.Ride;
+import br.gov.pge.rides.model.enums.RideStatus;
+import br.gov.pge.rides.repository.RideRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,6 +22,12 @@ public class DriverNotificationService {
     // One open SSE connection per logged-in driver, kept in memory.
     private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
 
+    private final RideRepository repository;
+
+    public DriverNotificationService(RideRepository repository) {
+        this.repository = repository;
+    }
+
     public SseEmitter subscribe(Long driverId) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // never times out on its own
 
@@ -28,7 +38,27 @@ public class DriverNotificationService {
 
         emitters.put(driverId, emitter);
         log.info("Driver {} subscribed to notifications ({} connected)", driverId, emitters.size());
+
+        // Catch this driver up on rides that were created before they connected
+        // (e.g. created while no driver was online) — otherwise they sit invisible
+        // until the timeout scheduler cancels them.
+        replayWaitingRides(driverId, emitter);
         return emitter;
+    }
+
+    private void replayWaitingRides(Long driverId, SseEmitter emitter) {
+        List<Ride> waiting = repository.findByStatus(RideStatus.WAITING);
+        for (Ride ride : waiting) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("new-ride")
+                        .data(new RideMessage(ride.getId(), ride.getUserId(), ride.getOrigin(), ride.getDestination())));
+            } catch (IOException ex) {
+                log.error("Failed to replay ride {} to driver {}", ride.getId(), driverId, ex);
+                emitters.remove(driverId);
+                break;
+            }
+        }
     }
 
     public void notifyNewRide(RideMessage ride) {

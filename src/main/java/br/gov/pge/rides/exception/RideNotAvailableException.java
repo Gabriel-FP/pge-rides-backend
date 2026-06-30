@@ -5,4 +5,8 @@ public class RideNotAvailableException extends RuntimeException {
     public RideNotAvailableException(Long rideId) {
         super("Ride " + rideId + " is not available to be accepted");
     }
+
+    public RideNotAvailableException(String message) {
+        super(message);
+    }
 }

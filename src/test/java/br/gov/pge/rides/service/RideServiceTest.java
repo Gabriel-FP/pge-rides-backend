@@ -10,6 +10,7 @@ import br.gov.pge.rides.mapper.RideMapper;
 import br.gov.pge.rides.messaging.RideProducer;
 import br.gov.pge.rides.model.Ride;
 import br.gov.pge.rides.model.enums.RideStatus;
+import br.gov.pge.rides.notification.ClientNotificationService;
 import br.gov.pge.rides.repository.RideRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,17 +30,11 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class RideServiceTest {
 
-    @Mock
-    private RideRepository repository;
-
-    @Mock
-    private RideMapper mapper;
-
-    @Mock
-    private RideProducer producer;
-
-    @Mock
-    private RideCacheService cache;
+    @Mock private RideRepository repository;
+    @Mock private RideMapper mapper;
+    @Mock private RideProducer producer;
+    @Mock private RideCacheService cache;
+    @Mock private ClientNotificationService clientNotificationService;
 
     @InjectMocks
     private RideService service;
@@ -81,6 +76,7 @@ class RideServiceTest {
         Ride ride = buildRide(10L, 1L, RideStatus.WAITING);
         RideResponseDTO response = buildResponse(10L, 1L, RideStatus.IN_PROGRESS);
 
+        when(repository.existsByDriverIdAndStatus(99L, RideStatus.IN_PROGRESS)).thenReturn(false);
         when(repository.findById(10L)).thenReturn(Optional.of(ride));
         when(repository.save(ride)).thenReturn(ride);
         when(mapper.toResponse(ride)).thenReturn(response);
@@ -91,10 +87,20 @@ class RideServiceTest {
         assertEquals(99L, ride.getDriverId());
         assertEquals(RideStatus.IN_PROGRESS, ride.getStatus());
         verify(cache).save(response);
+        verify(clientNotificationService).notifyStatusChange(any());
+    }
+
+    @Test
+    void accept_shouldThrowWhenDriverAlreadyHasActiveRide() {
+        when(repository.existsByDriverIdAndStatus(7L, RideStatus.IN_PROGRESS)).thenReturn(true);
+
+        assertThrows(RideNotAvailableException.class, () -> service.accept(10L, 7L));
+        verify(repository, never()).save(any());
     }
 
     @Test
     void accept_shouldThrowWhenRideNotFound() {
+        when(repository.existsByDriverIdAndStatus(1L, RideStatus.IN_PROGRESS)).thenReturn(false);
         when(repository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(RideNotFoundException.class, () -> service.accept(999L, 1L));
@@ -103,9 +109,56 @@ class RideServiceTest {
     @Test
     void accept_shouldThrowWhenRideNotWaiting() {
         Ride ride = buildRide(10L, 1L, RideStatus.IN_PROGRESS);
+        when(repository.existsByDriverIdAndStatus(1L, RideStatus.IN_PROGRESS)).thenReturn(false);
         when(repository.findById(10L)).thenReturn(Optional.of(ride));
 
         assertThrows(RideNotAvailableException.class, () -> service.accept(10L, 1L));
+        verify(repository, never()).save(any());
+    }
+
+    // --- finish ---
+
+    @Test
+    void finish_shouldCompleteRideAndNotifyClient() {
+        Ride ride = buildRide(10L, 1L, RideStatus.IN_PROGRESS);
+        ride.setDriverId(7L);
+        RideResponseDTO response = buildResponse(10L, 1L, RideStatus.COMPLETED);
+
+        when(repository.findById(10L)).thenReturn(Optional.of(ride));
+        when(repository.save(ride)).thenReturn(ride);
+        when(mapper.toResponse(ride)).thenReturn(response);
+
+        RideResponseDTO result = service.finish(10L, 7L);
+
+        assertEquals(RideStatus.COMPLETED, result.status());
+        assertEquals(RideStatus.COMPLETED, ride.getStatus());
+        verify(cache).save(response);
+        verify(clientNotificationService).notifyStatusChange(any());
+    }
+
+    @Test
+    void finish_shouldThrowWhenRideNotFound() {
+        when(repository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(RideNotFoundException.class, () -> service.finish(999L, 1L));
+    }
+
+    @Test
+    void finish_shouldThrowWhenRideNotInProgress() {
+        Ride ride = buildRide(10L, 1L, RideStatus.WAITING);
+        when(repository.findById(10L)).thenReturn(Optional.of(ride));
+
+        assertThrows(RideNotAvailableException.class, () -> service.finish(10L, 7L));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void finish_shouldThrowWhenDriverIdDoesNotMatch() {
+        Ride ride = buildRide(10L, 1L, RideStatus.IN_PROGRESS);
+        ride.setDriverId(7L);
+        when(repository.findById(10L)).thenReturn(Optional.of(ride));
+
+        assertThrows(RideNotAvailableException.class, () -> service.finish(10L, 99L));
         verify(repository, never()).save(any());
     }
 

@@ -1,7 +1,9 @@
 package br.gov.pge.rides.scheduler;
 
+import br.gov.pge.rides.messaging.RideStatusUpdate;
 import br.gov.pge.rides.model.Ride;
 import br.gov.pge.rides.model.enums.RideStatus;
+import br.gov.pge.rides.notification.ClientNotificationService;
 import br.gov.pge.rides.repository.RideRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,15 +20,17 @@ public class RideTimeoutScheduler {
     private static final Logger log = LoggerFactory.getLogger(RideTimeoutScheduler.class);
 
     private final RideRepository repository;
+    private final ClientNotificationService clientNotificationService;
     private final long timeoutSeconds;
 
     public RideTimeoutScheduler(RideRepository repository,
+                                ClientNotificationService clientNotificationService,
                                 @Value("${rides.timeout-seconds:60}") long timeoutSeconds) {
         this.repository = repository;
+        this.clientNotificationService = clientNotificationService;
         this.timeoutSeconds = timeoutSeconds;
     }
 
-    // Runs on a fixed schedule: any ride still WAITING past the timeout is cancelled.
     @Scheduled(fixedDelayString = "${rides.timeout-check-interval-ms:15000}")
     public void cancelExpiredRides() {
         LocalDateTime threshold = LocalDateTime.now().minusSeconds(timeoutSeconds);
@@ -36,6 +40,9 @@ public class RideTimeoutScheduler {
             ride.setStatus(RideStatus.CANCELLED);
             repository.save(ride);
             log.warn("Ride {} cancelled: no driver accepted within {}s", ride.getId(), timeoutSeconds);
+
+            clientNotificationService.notifyStatusChange(
+                    new RideStatusUpdate(ride.getId(), ride.getUserId(), RideStatus.CANCELLED, null));
         }
     }
 }

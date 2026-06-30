@@ -44,6 +44,11 @@ public class RideController {
         return service.accept(id, driverId);
     }
 
+    @PatchMapping("/{id}/finish")
+    public RideResponseDTO finish(@PathVariable Long id, @RequestParam Long driverId) {
+        return service.finish(id, driverId);
+    }
+
     // Reads the in-progress ride straight from Redis (for queries).
     @GetMapping("/{id}/status")
     public RideResponseDTO status(@PathVariable Long id) {
