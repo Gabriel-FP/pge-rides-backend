@@ -1,19 +1,35 @@
 package br.gov.pge.rides.notification;
 
 import br.gov.pge.rides.messaging.RideMessage;
+import br.gov.pge.rides.model.Ride;
+import br.gov.pge.rides.model.enums.RideStatus;
+import br.gov.pge.rides.repository.RideRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import static org.junit.jupiter.api.Assertions.*;
+import java.time.LocalDateTime;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
 class DriverNotificationServiceTest {
+
+    @Mock
+    private RideRepository repository;
 
     private DriverNotificationService service;
 
     @BeforeEach
     void setUp() {
-        service = new DriverNotificationService();
+        lenient().when(repository.findByStatus(RideStatus.WAITING)).thenReturn(List.of());
+        service = new DriverNotificationService(repository);
     }
 
     @Test
@@ -21,6 +37,25 @@ class DriverNotificationServiceTest {
         SseEmitter emitter = service.subscribe(1L);
 
         assertNotNull(emitter);
+    }
+
+    @Test
+    void subscribe_shouldReplayRidesAlreadyWaiting() {
+        Ride waiting = buildWaitingRide(7L);
+        when(repository.findByStatus(RideStatus.WAITING)).thenReturn(List.of(waiting));
+
+        assertDoesNotThrow(() -> service.subscribe(1L));
+    }
+
+    private Ride buildWaitingRide(Long id) {
+        Ride ride = new Ride();
+        ride.setId(id);
+        ride.setUserId(1L);
+        ride.setOrigin("Rua A");
+        ride.setDestination("Rua B");
+        ride.setStatus(RideStatus.WAITING);
+        ride.setCreatedAt(LocalDateTime.now());
+        return ride;
     }
 
     @Test

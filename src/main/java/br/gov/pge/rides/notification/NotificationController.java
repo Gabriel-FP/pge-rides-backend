@@ -9,15 +9,22 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RestController
 public class NotificationController {
 
-    private final DriverNotificationService notificationService;
+    private final DriverNotificationService driverNotificationService;
+    private final ClientNotificationService clientNotificationService;
 
-    public NotificationController(DriverNotificationService notificationService) {
-        this.notificationService = notificationService;
+    public NotificationController(DriverNotificationService driverNotificationService,
+                                  ClientNotificationService clientNotificationService) {
+        this.driverNotificationService = driverNotificationService;
+        this.clientNotificationService = clientNotificationService;
     }
 
-    // A driver opens this connection and keeps it open to receive ride events in real time.
     @GetMapping(value = "/notifications/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream(@RequestParam Long driverId) {
-        return notificationService.subscribe(driverId);
+    public SseEmitter driverStream(@RequestParam Long driverId) {
+        return driverNotificationService.subscribe(driverId);
+    }
+
+    @GetMapping(value = "/notifications/client-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter clientStream(@RequestParam Long userId) {
+        return clientNotificationService.subscribe(userId);
     }
 }
