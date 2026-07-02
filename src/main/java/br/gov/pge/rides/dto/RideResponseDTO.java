@@ -1,5 +1,6 @@
 package br.gov.pge.rides.dto;
 
+import br.gov.pge.rides.model.enums.CancelledBy;
 import br.gov.pge.rides.model.enums.RideStatus;
 
 import java.time.LocalDateTime;
@@ -11,6 +12,7 @@ public record RideResponseDTO(
         String destination,
         RideStatus status,
         Long driverId,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        CancelledBy cancelledBy
 ) {
 }

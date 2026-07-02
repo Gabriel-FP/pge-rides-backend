@@ -11,6 +11,7 @@ import br.gov.pge.rides.messaging.RideMessage;
 import br.gov.pge.rides.messaging.RideProducer;
 import br.gov.pge.rides.messaging.RideStatusUpdate;
 import br.gov.pge.rides.model.Ride;
+import br.gov.pge.rides.model.enums.CancelledBy;
 import br.gov.pge.rides.model.enums.RideStatus;
 import br.gov.pge.rides.notification.ClientNotificationService;
 import br.gov.pge.rides.repository.RideRepository;
@@ -100,6 +101,56 @@ public class RideService {
 
         clientNotificationService.notifyStatusChange(
                 new RideStatusUpdate(saved.getId(), saved.getUserId(), RideStatus.COMPLETED, driverId));
+
+        return response;
+    }
+
+    public RideResponseDTO cancelByClient(Long rideId, Long userId) {
+        Ride ride = repository.findById(rideId)
+                .orElseThrow(() -> new RideNotFoundException(rideId));
+
+        if (ride.getStatus() != RideStatus.IN_PROGRESS) {
+            throw new RideNotAvailableException("Ride " + rideId + " is not in progress");
+        }
+
+        if (!userId.equals(ride.getUserId())) {
+            throw new RideNotAvailableException("Ride " + rideId + " does not belong to user " + userId);
+        }
+
+        ride.setStatus(RideStatus.CANCELLED);
+        ride.setCancelledBy(CancelledBy.CLIENT);
+        Ride saved = repository.save(ride);
+
+        RideResponseDTO response = mapper.toResponse(saved);
+        cache.save(response);
+
+        clientNotificationService.notifyStatusChange(
+                new RideStatusUpdate(saved.getId(), saved.getUserId(), RideStatus.CANCELLED, saved.getDriverId()));
+
+        return response;
+    }
+
+    public RideResponseDTO cancelByDriver(Long rideId, Long driverId) {
+        Ride ride = repository.findById(rideId)
+                .orElseThrow(() -> new RideNotFoundException(rideId));
+
+        if (ride.getStatus() != RideStatus.IN_PROGRESS) {
+            throw new RideNotAvailableException("Ride " + rideId + " is not in progress");
+        }
+
+        if (!driverId.equals(ride.getDriverId())) {
+            throw new RideNotAvailableException("Driver " + driverId + " is not assigned to ride " + rideId);
+        }
+
+        ride.setStatus(RideStatus.CANCELLED);
+        ride.setCancelledBy(CancelledBy.DRIVER);
+        Ride saved = repository.save(ride);
+
+        RideResponseDTO response = mapper.toResponse(saved);
+        cache.save(response);
+
+        clientNotificationService.notifyStatusChange(
+                new RideStatusUpdate(saved.getId(), saved.getUserId(), RideStatus.CANCELLED, saved.getDriverId()));
 
         return response;
     }

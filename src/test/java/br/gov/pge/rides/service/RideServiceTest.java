@@ -9,6 +9,7 @@ import br.gov.pge.rides.exception.RideNotFoundException;
 import br.gov.pge.rides.mapper.RideMapper;
 import br.gov.pge.rides.messaging.RideProducer;
 import br.gov.pge.rides.model.Ride;
+import br.gov.pge.rides.model.enums.CancelledBy;
 import br.gov.pge.rides.model.enums.RideStatus;
 import br.gov.pge.rides.notification.ClientNotificationService;
 import br.gov.pge.rides.repository.RideRepository;
@@ -162,6 +163,85 @@ class RideServiceTest {
         verify(repository, never()).save(any());
     }
 
+    // --- cancelByClient ---
+
+    @Test
+    void cancelByClient_shouldCancelRideAndNotifyClient() {
+        Ride ride = buildRide(10L, 1L, RideStatus.IN_PROGRESS);
+        ride.setDriverId(7L);
+        RideResponseDTO response = buildResponse(10L, 1L, RideStatus.CANCELLED);
+
+        when(repository.findById(10L)).thenReturn(Optional.of(ride));
+        when(repository.save(ride)).thenReturn(ride);
+        when(mapper.toResponse(ride)).thenReturn(response);
+
+        RideResponseDTO result = service.cancelByClient(10L, 1L);
+
+        assertEquals(RideStatus.CANCELLED, result.status());
+        assertEquals(RideStatus.CANCELLED, ride.getStatus());
+        assertEquals(CancelledBy.CLIENT, ride.getCancelledBy());
+        verify(cache).save(response);
+        verify(clientNotificationService).notifyStatusChange(any());
+    }
+
+    @Test
+    void cancelByClient_shouldThrowWhenRideNotInProgress() {
+        Ride ride = buildRide(10L, 1L, RideStatus.WAITING);
+        when(repository.findById(10L)).thenReturn(Optional.of(ride));
+
+        assertThrows(RideNotAvailableException.class, () -> service.cancelByClient(10L, 1L));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void cancelByClient_shouldThrowWhenUserIdDoesNotMatch() {
+        Ride ride = buildRide(10L, 1L, RideStatus.IN_PROGRESS);
+        when(repository.findById(10L)).thenReturn(Optional.of(ride));
+
+        assertThrows(RideNotAvailableException.class, () -> service.cancelByClient(10L, 99L));
+        verify(repository, never()).save(any());
+    }
+
+    // --- cancelByDriver ---
+
+    @Test
+    void cancelByDriver_shouldCancelRideAndNotifyClient() {
+        Ride ride = buildRide(10L, 1L, RideStatus.IN_PROGRESS);
+        ride.setDriverId(7L);
+        RideResponseDTO response = buildResponse(10L, 1L, RideStatus.CANCELLED);
+
+        when(repository.findById(10L)).thenReturn(Optional.of(ride));
+        when(repository.save(ride)).thenReturn(ride);
+        when(mapper.toResponse(ride)).thenReturn(response);
+
+        RideResponseDTO result = service.cancelByDriver(10L, 7L);
+
+        assertEquals(RideStatus.CANCELLED, result.status());
+        assertEquals(RideStatus.CANCELLED, ride.getStatus());
+        assertEquals(CancelledBy.DRIVER, ride.getCancelledBy());
+        verify(cache).save(response);
+        verify(clientNotificationService).notifyStatusChange(any());
+    }
+
+    @Test
+    void cancelByDriver_shouldThrowWhenRideNotInProgress() {
+        Ride ride = buildRide(10L, 1L, RideStatus.WAITING);
+        when(repository.findById(10L)).thenReturn(Optional.of(ride));
+
+        assertThrows(RideNotAvailableException.class, () -> service.cancelByDriver(10L, 7L));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void cancelByDriver_shouldThrowWhenDriverIdDoesNotMatch() {
+        Ride ride = buildRide(10L, 1L, RideStatus.IN_PROGRESS);
+        ride.setDriverId(7L);
+        when(repository.findById(10L)).thenReturn(Optional.of(ride));
+
+        assertThrows(RideNotAvailableException.class, () -> service.cancelByDriver(10L, 99L));
+        verify(repository, never()).save(any());
+    }
+
     // --- getStatus ---
 
     @Test
@@ -222,6 +302,6 @@ class RideServiceTest {
     }
 
     private RideResponseDTO buildResponse(Long id, Long userId, RideStatus status) {
-        return new RideResponseDTO(id, userId, "Rua A", "Rua B", status, null, LocalDateTime.now());
+        return new RideResponseDTO(id, userId, "Rua A", "Rua B", status, null, LocalDateTime.now(), null);
     }
 }

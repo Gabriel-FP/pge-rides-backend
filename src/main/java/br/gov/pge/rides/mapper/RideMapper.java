@@ -24,7 +24,8 @@ public class RideMapper {
                 ride.getDestination(),
                 ride.getStatus(),
                 ride.getDriverId(),
-                ride.getCreatedAt()
+                ride.getCreatedAt(),
+                ride.getCancelledBy()
         );
     }
 }

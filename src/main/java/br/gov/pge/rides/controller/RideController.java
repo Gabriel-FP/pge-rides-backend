@@ -49,6 +49,16 @@ public class RideController {
         return service.finish(id, driverId);
     }
 
+    @PatchMapping("/{id}/cancel-by-client")
+    public RideResponseDTO cancelByClient(@PathVariable Long id, @RequestParam Long userId) {
+        return service.cancelByClient(id, userId);
+    }
+
+    @PatchMapping("/{id}/cancel-by-driver")
+    public RideResponseDTO cancelByDriver(@PathVariable Long id, @RequestParam Long driverId) {
+        return service.cancelByDriver(id, driverId);
+    }
+
     // Reads the in-progress ride straight from Redis (for queries).
     @GetMapping("/{id}/status")
     public RideResponseDTO status(@PathVariable Long id) {

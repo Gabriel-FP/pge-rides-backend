@@ -2,6 +2,7 @@ package br.gov.pge.rides.scheduler;
 
 import br.gov.pge.rides.messaging.RideStatusUpdate;
 import br.gov.pge.rides.model.Ride;
+import br.gov.pge.rides.model.enums.CancelledBy;
 import br.gov.pge.rides.model.enums.RideStatus;
 import br.gov.pge.rides.notification.ClientNotificationService;
 import br.gov.pge.rides.repository.RideRepository;
@@ -38,6 +39,7 @@ public class RideTimeoutScheduler {
 
         for (Ride ride : expired) {
             ride.setStatus(RideStatus.CANCELLED);
+            ride.setCancelledBy(CancelledBy.TIMEOUT);
             repository.save(ride);
             log.warn("Ride {} cancelled: no driver accepted within {}s", ride.getId(), timeoutSeconds);
 

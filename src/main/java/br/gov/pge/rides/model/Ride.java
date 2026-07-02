@@ -1,5 +1,6 @@
 package br.gov.pge.rides.model;
 
+import br.gov.pge.rides.model.enums.CancelledBy;
 import br.gov.pge.rides.model.enums.RideStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -33,6 +34,9 @@ public class Ride {
     private RideStatus status;
 
     private Long driverId; // null until a driver accepts the ride
+
+    @Enumerated(EnumType.STRING)
+    private CancelledBy cancelledBy; // null unless status == CANCELLED
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
